@@ -29,6 +29,7 @@ import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.hardware.VoltageSensor;
@@ -49,14 +50,14 @@ import java.util.List;
 @Config
 public final class MecanumDrive {
     // drive model parameters
-    public static double IN_PER_TICK = 0;
-    public static double LATERAL_IN_PER_TICK = 1;
-    public static double TRACK_WIDTH_TICKS = 0;
+    public static double IN_PER_TICK = (24 * 5.0)/3753.0;
+    public static double LATERAL_IN_PER_TICK = (24 * 5.0)/3753.0;
+    public static double TRACK_WIDTH_TICKS = 10.65 / IN_PER_TICK;
 
     // feedforward parameters
-    public static double kS = 0;
-    public static double kV = 0;
-    public static double kA = 0;
+    public static double kV = 0.15;
+    public static double kA = 0.02;
+    public static double kS = 0.05;
 
     // path profile parameters
     public static double MAX_WHEEL_VEL = 50;
@@ -68,13 +69,13 @@ public final class MecanumDrive {
     public static double MAX_ANG_ACCEL = Math.PI;
 
     // path controller gains
-    public static double AXIAL_GAIN = 0.0;
-    public static double LATERAL_GAIN = 0.0;
-    public static double HEADING_GAIN = 0.0; // shared with turn
+    public static double AXIAL_GAIN = 2.0;
+    public static double LATERAL_GAIN = 2.0;
+    public static double HEADING_GAIN = 2.0; // shared with turn
 
-    public static double AXIAL_VEL_GAIN = 0.0;
-    public static double LATERAL_VEL_GAIN = 0.0;
-    public static double HEADING_VEL_GAIN = 0.0; // shared with turn
+    public static double AXIAL_VEL_GAIN = SMARTDAMP(kV,kA,AXIAL_GAIN,false);
+    public static double LATERAL_VEL_GAIN = SMARTDAMP(kV,kA,LATERAL_GAIN,false);
+    public static double HEADING_VEL_GAIN = SMARTDAMP(kV,kA,HEADING_GAIN,true); // shared with turn
 
     public final MecanumKinematics kinematics = new MecanumKinematics(
             IN_PER_TICK * TRACK_WIDTH_TICKS,
@@ -105,6 +106,16 @@ public final class MecanumDrive {
 
     private final LinkedList<Pose2d> poseHistory = new LinkedList<>();
 
+    public static double SMARTDAMP(double kV, double kA, double kP, boolean isAngle) {
+        double kD;
+        if (isAngle) {
+            kD = 2 * Math.sqrt(kA/(TRACK_WIDTH_TICKS*IN_PER_TICK) * kP) - kV/(TRACK_WIDTH_TICKS*IN_PER_TICK);
+        } else {
+            kD =  2 * Math.sqrt(kA * kP) - kV;
+        }
+        return Math.max(kD,0);
+    }
+
     public class DriveLocalizer implements Localizer {
         public final Encoder leftFront, leftRear, rightRear, rightFront;
 
@@ -113,7 +124,9 @@ public final class MecanumDrive {
 
         public DriveLocalizer() {
             leftFront = new OverflowEncoder(new RawEncoder(MecanumDrive.this.leftFront));
+            leftFront.setDirection(DcMotorSimple.Direction.REVERSE);
             leftRear = new OverflowEncoder(new RawEncoder(MecanumDrive.this.leftBack));
+            leftRear.setDirection(DcMotorSimple.Direction.REVERSE);
             rightRear = new OverflowEncoder(new RawEncoder(MecanumDrive.this.rightBack));
             rightFront = new OverflowEncoder(new RawEncoder(MecanumDrive.this.rightFront));
 
@@ -154,6 +167,7 @@ public final class MecanumDrive {
                     }).times(inPerTick)
             ));
 
+
             lastLeftFrontPos = leftFrontPosVel.position;
             lastLeftRearPos = leftRearPosVel.position;
             lastRightRearPos = rightRearPosVel.position;
@@ -178,25 +192,29 @@ public final class MecanumDrive {
             module.setBulkCachingMode(LynxModule.BulkCachingMode.AUTO);
         }
 
-        leftFront = hardwareMap.get(DcMotorEx.class, "leftFront");
-        leftBack = hardwareMap.get(DcMotorEx.class, "leftBack");
-        rightBack = hardwareMap.get(DcMotorEx.class, "rightBack");
-        rightFront = hardwareMap.get(DcMotorEx.class, "rightFront");
+        leftFront = hardwareMap.get(DcMotorEx.class, "frontleft");
+        leftBack = hardwareMap.get(DcMotorEx.class, "backleft");
+        rightBack = hardwareMap.get(DcMotorEx.class, "backright");
+        rightFront = hardwareMap.get(DcMotorEx.class, "frontright");
 
         leftFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         leftBack.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         rightBack.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         rightFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        leftFront.setDirection(DcMotorSimple.Direction.REVERSE);
+        leftBack.setDirection(DcMotorSimple.Direction.REVERSE);
 
         imu = hardwareMap.get(IMU.class, "imu");
         IMU.Parameters parameters = new IMU.Parameters(new RevHubOrientationOnRobot(
-                RevHubOrientationOnRobot.LogoFacingDirection.UP,
-                RevHubOrientationOnRobot.UsbFacingDirection.FORWARD));
+                RevHubOrientationOnRobot.LogoFacingDirection.LEFT,
+                RevHubOrientationOnRobot.UsbFacingDirection.UP));
         imu.initialize(parameters);
+        imu.resetYaw();
 
         voltageSensor = hardwareMap.voltageSensor.iterator().next();
 
         localizer = new DriveLocalizer();
+
     }
 
     public void setDrivePowers(Twist2d powers) {
@@ -406,7 +424,7 @@ public final class MecanumDrive {
         c.strokePolyline(xPoints, yPoints);
     }
 
-    private static void drawRobot(Canvas c, Pose2d t) {
+    public static void drawRobot(Canvas c, Pose2d t) {
         final double ROBOT_RADIUS = 9;
 
         c.setStrokeWidth(1);
@@ -427,5 +445,9 @@ public final class MecanumDrive {
                 defaultVelConstraint, defaultAccelConstraint,
                 0.25
         );
+    }
+
+    public void updatePose() {
+        updatePoseEstimateAndGetActualVel();
     }
 }

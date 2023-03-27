@@ -29,6 +29,9 @@ public final class ForwardPushTest extends LinearOpMode {
 
         double initAvgPos = avgPos(view.forwardEncs);
         while (opModeIsActive()) {
+            for (int i = 0; i < view.forwardEncs.size(); ++i) {
+                telemetry.addData("encoder " + i, view.forwardEncs.get(i).getPositionAndVelocity().position);
+            }
             telemetry.addData("ticks traveled", avgPos(view.forwardEncs) - initAvgPos);
             telemetry.update();
         }

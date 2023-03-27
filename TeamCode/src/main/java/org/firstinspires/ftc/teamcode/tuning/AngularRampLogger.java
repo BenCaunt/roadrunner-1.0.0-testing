@@ -120,7 +120,7 @@ public final class AngularRampLogger extends LinearOpMode {
             }
             data.encTimes.add(t.addSplit());
 
-            AngularVelocity av = view.imu.getRobotAngularVelocity(AngleUnit.RADIANS);
+            AngularVelocity av = view. imu.getRobotAngularVelocity(AngleUnit.RADIANS);
             data.angVels.get(0).add((double) av.xRotationRate);
             data.angVels.get(1).add((double) av.yRotationRate);
             data.angVels.get(2).add((double) av.zRotationRate);

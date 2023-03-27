@@ -28,6 +28,7 @@ final class DriveView {
 
     public final double inPerTick;
     public final double maxVel, minAccel, maxAccel;
+    public final double maxAngularVel,maxAngularAccel;
 
     public final List<DcMotorEx> leftMotors, rightMotors;
     public final List<DcMotorEx> motors;
@@ -61,29 +62,17 @@ final class DriveView {
             maxVel = MecanumDrive.MAX_WHEEL_VEL;
             minAccel = MecanumDrive.MIN_PROFILE_ACCEL;
             maxAccel = MecanumDrive.MAX_PROFILE_ACCEL;
+            maxAngularAccel = MecanumDrive.MAX_ANG_ACCEL;
+            maxAngularVel = MecanumDrive.MAX_ANG_VEL;
 
             md = new MecanumDrive(hardwareMap, new Pose2d(0, 0, 0)); td = null;
             leftMotors = Arrays.asList(md.leftFront, md.leftBack);
             rightMotors = Arrays.asList(md.rightFront, md.rightBack);
             imu = md.imu;
+            imu.resetYaw();
             voltageSensor = md.voltageSensor;
 
             localizer = md.localizer;
-        } else if (TuningOpModes.DRIVE_CLASS.equals(TankDrive.class)) {
-            type = "tank";
-
-            inPerTick = TankDrive.IN_PER_TICK;
-            maxVel = TankDrive.MAX_WHEEL_VEL;
-            minAccel = TankDrive.MIN_PROFILE_ACCEL;
-            maxAccel = TankDrive.MAX_PROFILE_ACCEL;
-
-            td = new TankDrive(hardwareMap, new Pose2d(0, 0, 0)); md = null;
-            leftMotors = td.leftMotors;
-            rightMotors = td.rightMotors;
-            imu = td.imu;
-            voltageSensor = td.voltageSensor;
-
-            localizer = td.localizer;
         } else {
             throw new AssertionError();
         }
@@ -156,6 +145,22 @@ final class DriveView {
         throw new AssertionError();
     }
 
+    public MotorFeedforward feedforwardTurn() {
+        if (md != null) {
+            return new MotorFeedforward(MecanumDrive.kS,
+                    MecanumDrive.kV / MecanumDrive.TRACK_WIDTH_TICKS,
+                    MecanumDrive.kA / MecanumDrive.TRACK_WIDTH_TICKS);
+        }
+
+        if (td != null) {
+            return new MotorFeedforward(TankDrive.kS,
+                    TankDrive.kV / MecanumDrive.TRACK_WIDTH_TICKS,
+                    TankDrive.kA / MecanumDrive.TRACK_WIDTH_TICKS);
+        }
+
+        throw new AssertionError();
+    }
+
     public void setDrivePowers(Twist2d powers) {
         if (md != null) {
             md.setDrivePowers(powers);
@@ -168,5 +173,9 @@ final class DriveView {
         }
 
         throw new AssertionError();
+    }
+
+    public MecanumDrive getMd() {
+        return md;
     }
 }

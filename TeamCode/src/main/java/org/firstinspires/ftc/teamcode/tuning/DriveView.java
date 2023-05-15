@@ -42,7 +42,7 @@ final class DriveView {
 
     public final VoltageSensor voltageSensor;
 
-    private final MecanumDrive md;
+    public final MecanumDrive md;
     private final TankDrive td;
 
     private static RawEncoder unwrap(Encoder e) {
@@ -65,7 +65,7 @@ final class DriveView {
             maxAngularAccel = MecanumDrive.MAX_ANG_ACCEL;
             maxAngularVel = MecanumDrive.MAX_ANG_VEL;
 
-            md = new MecanumDrive(hardwareMap, new Pose2d(0, 0, 0)); td = null;
+            md = new MecanumDrive(hardwareMap, new Pose2d(-60, -36, 0)); td = null;
             leftMotors = Arrays.asList(md.leftFront, md.leftBack);
             rightMotors = Arrays.asList(md.rightFront, md.rightBack);
             imu = md.imu;

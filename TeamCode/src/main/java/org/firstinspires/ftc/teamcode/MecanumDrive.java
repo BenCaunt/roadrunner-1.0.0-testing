@@ -60,9 +60,9 @@ public final class MecanumDrive {
     public static double kS = 0.05;
 
     // path profile parameters
-    public static double MAX_WHEEL_VEL = 50;
-    public static double MIN_PROFILE_ACCEL = -30;
-    public static double MAX_PROFILE_ACCEL = 50;
+    public static double MAX_WHEEL_VEL = 70;
+    public static double MIN_PROFILE_ACCEL = -50;
+    public static double MAX_PROFILE_ACCEL = 70;
 
     // turn profile parameters
     public static double MAX_ANG_VEL = Math.PI; // shared with path

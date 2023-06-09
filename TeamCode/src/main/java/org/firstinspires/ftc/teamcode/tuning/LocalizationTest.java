@@ -83,7 +83,7 @@ public class LocalizationTest extends LinearOpMode {
 							new Vector2d(
 									-gamepad1.left_stick_y,
 									(-gamepad1.left_stick_x)
-							).plus(extraForce),
+							),
 							-gamepad1.right_stick_x
 					)
 			);

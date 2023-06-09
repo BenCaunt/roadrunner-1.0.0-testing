@@ -26,6 +26,7 @@ import com.acmerobotics.roadrunner.Twist2dIncrDual;
 import com.acmerobotics.roadrunner.Vector2d;
 import com.acmerobotics.roadrunner.VelConstraint;
 import com.qualcomm.hardware.lynx.LynxModule;
+import com.qualcomm.hardware.rev.Rev2mDistanceSensor;
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
@@ -35,6 +36,7 @@ import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.hardware.VoltageSensor;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.teamcode.util.LogFiles;
 import org.firstinspires.ftc.teamcode.util.Encoder;
 import org.firstinspires.ftc.teamcode.util.Localizer;
@@ -76,6 +78,10 @@ public final class MecanumDrive {
     public static double AXIAL_VEL_GAIN = SMARTDAMP(kV,kA,AXIAL_GAIN,false);
     public static double LATERAL_VEL_GAIN = SMARTDAMP(kV,kA,LATERAL_GAIN,false);
     public static double HEADING_VEL_GAIN = SMARTDAMP(kV,kA,HEADING_GAIN,true); // shared with turn
+
+    double distanceFromMiddle = 3;
+
+    public final Rev2mDistanceSensor distanceSensor;
 
     public final MecanumKinematics kinematics = new MecanumKinematics(
             IN_PER_TICK * TRACK_WIDTH_TICKS,
@@ -119,6 +125,10 @@ public final class MecanumDrive {
     public class DriveLocalizer implements Localizer {
         public final Encoder leftFront, leftRear, rightRear, rightFront;
 
+        public Rev2mDistanceSensor distanceSensor;
+
+
+
         private int lastLeftFrontPos, lastLeftRearPos, lastRightRearPos, lastRightFrontPos;
         private Rotation2d lastHeading;
 
@@ -129,6 +139,7 @@ public final class MecanumDrive {
             leftRear.setDirection(DcMotorSimple.Direction.REVERSE);
             rightRear = new OverflowEncoder(new RawEncoder(MecanumDrive.this.rightBack));
             rightFront = new OverflowEncoder(new RawEncoder(MecanumDrive.this.rightFront));
+            distanceSensor = MecanumDrive.this.distanceSensor;
 
             lastLeftFrontPos = leftFront.getPositionAndVelocity().position;
             lastLeftRearPos = leftRear.getPositionAndVelocity().position;
@@ -175,6 +186,45 @@ public final class MecanumDrive {
 
             lastHeading = heading;
 
+
+            double deltaForward = heading.minus(Rotation2d.exp(Math.toRadians(0)));
+            double deltaLeft = heading.minus(Rotation2d.exp(Math.toRadians(90)));
+            double deltaRight = heading.minus(Rotation2d.exp(Math.toRadians(270)));
+            double deltaBack = heading.minus(Rotation2d.exp(Math.toRadians(180)));
+            System.out.println("forward: " + deltaForward + " left: " + deltaLeft + " right: " + deltaRight + " back: " + deltaBack);
+
+            double distance = distanceSensor.getDistance(DistanceUnit.INCH) - 3; // offset from robot center
+
+            double globalX = pose.trans.x;
+            double globalY = pose.trans.y;
+            if (distance > 6 && distance < 24 && (Math.abs(globalX) > (72 - 24) || Math.abs(globalY) > (72 - 24))) {
+                double newX = globalX;
+                double newY = globalY;
+                if (Math.abs(deltaForward) < Math.abs(deltaLeft) && Math.abs(deltaForward) < Math.abs(deltaRight) && Math.abs(deltaForward) < deltaBack) {
+                    newX = 72 - distance;
+                } else if (Math.abs(deltaLeft) < Math.abs(deltaForward) && Math.abs(deltaLeft) < Math.abs(deltaRight) && Math.abs(deltaLeft) < deltaBack) {
+                    newY = 72 - distance;
+                } else if (Math.abs(deltaRight) < Math.abs(deltaLeft) && Math.abs(deltaRight) < Math.abs(deltaForward) && Math.abs(deltaForward) < deltaBack) {
+                    newY = -72 + distance;
+                } else {
+                    newX = -72 + distance;
+                }
+
+
+
+                Pose2d newPose = new Pose2d(new Vector2d(newX, newY), pose.rot);
+
+                if (Math.signum(globalX) == Math.signum(newX) && Math.signum(globalY) == Math.signum(newY)) {
+                    pose = newPose;
+                }
+
+                System.out.println(
+                        "re-localizing at " + pose
+                );
+            }
+
+
+
             return new Twist2dIncrDual<>(
                     twist.transIncr,
                     twist.rotIncr.drop(1).addFront(headingDelta)
@@ -196,6 +246,7 @@ public final class MecanumDrive {
         leftBack = hardwareMap.get(DcMotorEx.class, "backleft");
         rightBack = hardwareMap.get(DcMotorEx.class, "backright");
         rightFront = hardwareMap.get(DcMotorEx.class, "frontright");
+        distanceSensor = hardwareMap.get(Rev2mDistanceSensor.class, "distance");
 
         leftFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         leftBack.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
